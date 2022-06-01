@@ -1,0 +1,82 @@
+---
+#
+# Play 1 - Create 'x' instances in digitalocean based on 'count' var
+#
+- name: Diginal Ocean orchestrator
+  hosts: localhost
+  vars:
+    do_token: XXX
+    droplet_image: docker-20-04
+    agents_count: 1
+  tasks:
+    # - import_role: 
+    #     name: create_droplet
+  - name: create a new droplet
+    digital_ocean_droplet:
+      state: present
+      name: test0{{ item }}
+      oauth_token: "{{ do_token }}"
+      size: 2gb
+      region: sgp1
+      image: "{{ droplet_image }}"
+      ssh_keys: [28258966]
+      wait_timeout: 500
+    loop: "{{ range(1, agents_count + 1) | list }}"
+    register: newnodes
+  - debug:
+      msg: "ID is {{ item.data.droplet.id }}, IP is {{ item.data.ip_address }}"
+    loop: "{{ newnodes.results }}"
+  - add_host: 
+      name: "{{ item.data.ip_address }}"
+      ansible_user: root
+      groups: created_nodes
+      instance_name: "{{ item.data.droplet.id }}"
+      ansible_ssh_private_key_file: /home/user/.ssh/ausschalten
+    loop: "{{ newnodes.results }}"
+ 
+#
+# Play 2 - Configure nodes from in-memory inventory
+#
+- name: Configure nodes
+  hosts: created_nodes
+  vars:
+    do_token: XXX
+    cmd_args: '''{"target_ip": "XXX"}'''
+    start_command: "run icmp_flood 0 --args {{ cmd_args }}"
+  remote_user: root
+  gather_facts: no
+  tasks:
+  - debug:
+      msg: "start_command: {{ start_command }}"
+  # - name: Wait for SSH banners
+  #   wait_for_connection:
+  #     delay: 5
+  #     timeout: 300
+  # - name: install PIP3
+  #   apt:
+  #     name: python3-pip
+  # - name: intall docker-py
+  #   raw: pip3 install docker-py
+  - name: create and run container
+    docker_container:
+      name: myapplication
+      image: heyder/aus
+      state: started
+      restart: yes
+      command: " {{ start_command }} "
+      cleanup: yes
+  - name: Pause play to interact with the servers
+    pause:
+      prompt: "Playbook paused... hit <enter> to continue or <ctrl-c a> to abort"
+# 
+# Play 3 - Destroy nodes
+# 
+# - name: Destroy nodes
+#   hosts: localhost
+#   tasks:
+#   - name: Destroy instances
+#     digital_ocean_droplet:
+#       state: absent
+#       id: "{{ item.instance_name }}"
+#     loop: "{{ groups.created_nodes }}"
+      

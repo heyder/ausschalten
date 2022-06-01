@@ -1,0 +1,1 @@
+DNS_QUERY_TYPES = ["ANY", "A","AAAA","CNAME","MX","NS","PTR","CERT","SRV","TXT", "SOA"] # DNS Query Types

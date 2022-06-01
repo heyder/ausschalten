@@ -1,0 +1,31 @@
+attack_technique: dns_amplification
+display_name: "DNS amplification Attack"
+category: "amplification"
+reference: "https://de.wikipedia.org/wiki/DNS_Amplification_Attack"
+atomic_tests:
+- name: "DNS Amplification"
+  description: "python writen attack_technique"
+  supported_platforms:
+  - linux
+  input_arguments:
+    domain:
+      description: "Domain name "
+      type: String
+      default: '"isc.org"'
+    target_ip:
+      description: "Target IP"
+      type: String
+      default: 127.0.0.1
+    number:
+      description: "number of requests to be performed"
+      type: Interger
+      default: 10
+    query_type:
+      description: "query type"
+      type: String
+      default: ANY
+  executor:
+    command: |
+      python3 $HOME/dist/py/aus-py/app.py dns_amplification --args '{"nameserver":"#{target_ip}","domain":"#{domain}","query_type":"#{query_type}"}'
+    cleanup_command: ""
+    name: command_prompt

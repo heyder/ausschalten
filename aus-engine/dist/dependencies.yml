@@ -1,0 +1,6 @@
+- dependencies:
+- name: "hping"
+    url: "https://github.com/antirez/hping.git"
+- name: "dns-flood-ng"
+    url: "https://github.com/cmosek/dns-flood-ng" 
+    

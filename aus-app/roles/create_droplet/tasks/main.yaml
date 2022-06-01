@@ -1,0 +1,24 @@
+---
+- name: create a new droplet
+  digital_ocean_droplet:
+    state: present
+    name: mydroplet
+    oauth_token: "{{ do_token }}"
+    size: 2gb
+    region: sgp1
+    image: "{{ droplet_image }}"
+    ssh_keys: [28258966]
+    wait_timeout: 500
+  register: my_droplet
+- debug:
+    msg: "ID is {{ my_droplet.data.droplet.id }}, IP is {{ my_droplet.data.ip_address }}"
+# - name:  ensure a droplet is present
+#   digital_ocean_droplet:
+#     state: present
+#     id: "{{ my_droplet.data.droplet.id }}"
+#     name: mydroplet
+#     oauth_token: "{{ do_token }}"
+#     size: 2gb
+#     region: sgp1
+#     image: "{{ droplet_image }}"
+#     wait_timeout: 500
